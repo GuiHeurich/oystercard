@@ -1,56 +1,89 @@
+
 require 'oystercard'
 
-RSpec.describe Oystercard do
+class Oystercard
+  public :deduct
+end
 
-  it "initializes card with default balance" do
-    expect(subject.balance).to eq 0
+describe Oystercard do
+
+  let(:station) { double :station }
+
+  it 'checks card balance is zero' do
+    expect(subject.balance).to eq (0)
   end
 
-  describe '#top_up' do
-    it "increments the balance" do
-      amount = 10
-       expect { subject.top_up(amount) }.to change { subject.balance }.from(0).to(10)
-    end
-
-    it "prevents top_up to go over the limit" do
-      amount = 100
-      LIMIT = 90
-      expect { subject.top_up(amount)}.to raise_error("Cannot add #{amount} to card. #{LIMIT} maximum limit exceeded")
-    end
+  it "checks that there are no recorded journeys by default" do
+    expect(subject.list_of_journeys).to be_empty
   end
 
-  describe "#deduct" do
-    it "deducts fare from balance" do
-      subject.top_up(20)
-      fare = 10
-      expect {subject.deduct(fare)}.to change { subject.balance }.from(20).to(10)
-    end
+  it "checks that touch_in and touch_out create one journey" do
+    subject.top_up(30)
+    subject.touch_in(station)
+    subject.touch_out(station)
+    expect(subject.list_of_journeys).not_to be_empty
   end
 
-  describe "#state" do
-    it "evaluates the state of the card" do
-      expect(subject.state).to eq false
-    end
+describe "#top_up" do
+
+  it " can top up the balance" do
+    expect{ subject.top_up 1 }.to change{ subject.balance }.by 1
   end
 
-  describe "#touch_in" do
-    it "begins the journey" do
-      expect { subject.touch_in }.to change { subject.state}.from(false).to(true)
-    end
+  it "raises an error if card balance is more then 90" do
+    subject.top_up(Oystercard::MAXIMUM_BALANCE)
+    expect { subject.top_up(1) }.to raise_error "Maximum balance of #{Oystercard::MAXIMUM_BALANCE} exceeded"
+  end
+end
+
+describe "#deduct" do
+
+  it 'deducts an amount from the balance' do
+    subject.top_up(20)
+    expect{ subject.deduct 1}.to change{ subject.balance }.by -1
   end
 
-  describe "#touch_out" do
-    it "ends the journey" do
-      subject.touch_in
-      expect { subject.touch_out }.to change { subject.state}.from(true).to(false)
-    end
-  end
+end
 
-  describe "#in_journey" do
-    it "tests if in_journey" do
-      expect(subject.in_journey?).to be false
-      subject.touch_in
-      expect(subject.in_journey?).to be true
-    end
+describe "#in_journey" do
+
+  it 'it starts not in a journey' do
+    expect(subject).not_to be_in_journey
   end
+end
+
+describe "#touch_in" do
+
+  it "can touch in" do
+    subject.top_up(Oystercard::MINIMUM_BALANCE)
+    subject.touch_in(station)
+    expect(subject).to be_in_journey
+ end
+
+ it "raises an error if card balance is less then 1" do
+   subject.top_up(0)
+   expect{ subject.touch_in(station) }.to raise_error "you have less then #{Oystercard::MINIMUM_BALANCE}, please top up"
+ end
+
+ it "remembers the station where touched in" do
+   subject.top_up(25)
+   subject.touch_in(station)
+   expect(subject.entry_station).to eq (station)
+ end
+end
+
+describe "#touch_out" do
+
+  it "can touch out" do
+    subject.top_up(Oystercard::MINIMUM_BALANCE)
+    subject.touch_out(station)
+    expect(subject).not_to be_in_journey
+end
+
+  it "deducts fare value from balance" do
+    subject.top_up(10)
+    expect { subject.touch_out(station) }.to change { subject.balance }.by -2
+  end
+end
+
 end
